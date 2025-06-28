@@ -147,13 +147,11 @@ def deletar_sugestao(id):
     conn = conectar_banco()
     cursor = conn.cursor()
     
-    # Verificar se a sugestão existe
     cursor.execute("SELECT id FROM sugestoes WHERE id = ?", (id,))
     if not cursor.fetchone():
         conn.close()
         return jsonify({"erro": "Sugestão não encontrada"}), 404
     
-    # Deletar a sugestão
     cursor.execute("DELETE FROM sugestoes WHERE id = ?", (id,))
     conn.commit()
     conn.close()
