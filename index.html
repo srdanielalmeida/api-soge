@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Sugestões SOGE</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .sugestao {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+
+        .sugestao h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-aberta { background: #d4edda; color: #155724; }
+        .status-em-analise { background: #fff3cd; color: #856404; }
+        .status-implementada { background: #d1ecf1; color: #0c5460; }
+
+        .filtros {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .filtros > div {
+            flex: 1;
+        }
+
+        .mensagem {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .sucesso {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .erro {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sistema de Sugestões SOGE</h1>
+
+        <!-- Formulário para criar sugestão -->
+        <div class="section">
+            <h2>Nova Sugestão</h2>
+            <div id="mensagem-create"></div>
+            
+            <div class="form-group">
+                <label for="nome">Nome do Colaborador:</label>
+                <input type="text" id="nome" placeholder="Digite seu nome">
+            </div>
+            
+            <div class="form-group">
+                <label for="setor">Setor:</label>
+                <select id="setor">
+                    <option value="">Selecione</option>
+                    <option value="TI">TI</option>
+                    <option value="RH">RH</option>
+                    <option value="Financeiro">Financeiro</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Operações">Operações</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="descricao">Descrição:</label>
+                <textarea id="descricao" placeholder="Descreva sua sugestão"></textarea>
+            </div>
+            
+            <button onclick="criarSugestao()">Enviar Sugestão</button>
+        </div>
+
+        <!-- Lista de sugestões -->
+        <div class="section">
+            <h2>Sugestões Cadastradas</h2>
+            
+            <div class="filtros">
+                <div>
+                    <label for="filtro-status">Filtrar por Status:</label>
+                    <select id="filtro-status">
+                        <option value="">Todos</option>
+                        <option value="aberta">Aberta</option>
+                        <option value="em análise">Em Análise</option>
+                        <option value="implementada">Implementada</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="filtro-setor">Filtrar por Setor:</label>
+                    <select id="filtro-setor">
+                        <option value="">Todos</option>
+                        <option value="TI">TI</option>
+                        <option value="RH">RH</option>
+                        <option value="Financeiro">Financeiro</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="Operações">Operações</option>
+                    </select>
+                </div>
+                <div style="align-self: end;">
+                    <button onclick="carregarSugestoes()">Buscar</button>
+                    <button onclick="limparFiltros()">Limpar</button>
+                </div>
+            </div>
+            
+            <div id="lista-sugestoes">
+                <p>Carregando sugestões...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5000';
+
+        function mostrarMensagem(texto, tipo, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<div class="mensagem ${tipo}">${texto}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        function criarSugestao() {
+            const nome = document.getElementById('nome').value;
+            const setor = document.getElementById('setor').value;
+            const descricao = document.getElementById('descricao').value;
+
+            if (!nome || !setor || !descricao) {
+                mostrarMensagem('Todos os campos são obrigatórios!', 'erro', 'mensagem-create');
+                return;
+            }
+
+            fetch(`${API_URL}/sugestoes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    nome_colaborador: nome,
+                    setor: setor,
+                    descricao: descricao
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.mensagem) {
+                    mostrarMensagem(data.mensagem, 'sucesso', 'mensagem-create');
+                    document.getElementById('nome').value = '';
+                    document.getElementById('setor').value = '';
+                    document.getElementById('descricao').value = '';
+                    carregarSugestoes();
+                } else {
+                    mostrarMensagem('Erro: ' + data.erro, 'erro', 'mensagem-create');
+                }
+            })
+            .catch(error => {
+                mostrarMensagem('Erro de conexão', 'erro', 'mensagem-create');
+            });
+        }
+
+        function carregarSugestoes() {
+            const statusFiltro = document.getElementById('filtro-status').value;
+            const setorFiltro = document.getElementById('filtro-setor').value;
+
+            let url = `${API_URL}/sugestoes`;
+            const params = [];
+
+            if (statusFiltro) params.push(`status=${statusFiltro}`);
+            if (setorFiltro) params.push(`setor=${setorFiltro}`);
+
+            if (params.length > 0) {
+                url += '?' + params.join('&');
+            }
+
+            fetch(url)
+            .then(response => response.json())
+            .then(sugestoes => {
+                const container = document.getElementById('lista-sugestoes');
+                
+                if (sugestoes.length === 0) {
+                    container.innerHTML = '<p>Nenhuma sugestão encontrada.</p>';
+                    return;
+                }
+
+                let html = '';
+                sugestoes.forEach(sugestao => {
+                    html += `
+                        <div class="sugestao">
+                            <h4>${sugestao.nome_colaborador} - ${sugestao.setor}</h4>
+                            <p><strong>ID:</strong> ${sugestao.id}</p>
+                            <p><strong>Descrição:</strong> ${sugestao.descricao}</p>
+                            <p><strong>Data:</strong> ${new Date(sugestao.data_criacao).toLocaleDateString('pt-BR')}</p>
+                            <p><strong>Status:</strong> 
+                                <span class="status status-${sugestao.status.replace(' ', '-')}">${sugestao.status}</span>
+                            </p>
+                            <div style="margin-top: 10px;">
+                                <select id="novo-status-${sugestao.id}">
+                                    <option value="aberta" ${sugestao.status === 'aberta' ? 'selected' : ''}>Aberta</option>
+                                    <option value="em análise" ${sugestao.status === 'em análise' ? 'selected' : ''}>Em Análise</option>
+                                    <option value="implementada" ${sugestao.status === 'implementada' ? 'selected' : ''}>Implementada</option>
+                                </select>
+                                <button onclick="atualizarStatus(${sugestao.id})">Atualizar Status</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            })
+            .catch(error => {
+                document.getElementById('lista-sugestoes').innerHTML = '<p>Erro ao carregar sugestões.</p>';
+            });
+        }
+
+        function atualizarStatus(id) {
+            const novoStatus = document.getElementById(`novo-status-${id}`).value;
+
+            fetch(`${API_URL}/sugestoes/${id}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    status: novoStatus
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.mensagem) {
+                    alert('Status atualizado com sucesso!');
+                    carregarSugestoes();
+                } else {
+                    alert('Erro: ' + data.erro);
+                }
+            })
+            .catch(error => {
+                alert('Erro de conexão');
+            });
+        }
+
+        function limparFiltros() {
+            document.getElementById('filtro-status').value = '';
+            document.getElementById('filtro-setor').value = '';
+            carregarSugestoes();
+        }
+
+        // Carregar sugestões quando a página abrir
+        window.onload = function() {
+            carregarSugestoes();
+        };
+    </script>
+</body>
+</html>
